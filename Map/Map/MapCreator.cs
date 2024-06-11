@@ -17,10 +17,10 @@ namespace TourPlanner.BusinessLogic.Map
         private readonly double maxLat;
         public MapCreator(GeoCoordinate start, GeoCoordinate end)
         {
-            this.minLon = start.Lon;
-            this.minLat = start.Lat;
-            this.maxLon = end.Lon;
-            this.maxLat = end.Lat;
+            this.minLon = Math.Min(start.Lon, end.Lon);
+            this.minLat = Math.Min(start.Lat, end.Lat);
+            this.maxLon = Math.Max(start.Lon, end.Lon);
+            this.maxLat = Math.Max(start.Lat, end.Lat);
         }
 
         public int Zoom { get; set; } = 18;
