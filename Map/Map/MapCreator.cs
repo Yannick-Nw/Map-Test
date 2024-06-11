@@ -40,11 +40,15 @@ namespace TourPlanner.BusinessLogic.Map
             var topLeftTile = Tile.LatLonToTile(maxLat, minLon, Zoom);
             var bottomRightTile = Tile.LatLonToTile(minLat, maxLon, Zoom);
 
+            // Debugging output for tile positions
+            Console.WriteLine($"Top Left Tile: X={topLeftTile.X}, Y={topLeftTile.Y}");
+            Console.WriteLine($"Bottom Right Tile: X={bottomRightTile.X}, Y={bottomRightTile.Y}");
+
             // Determine the number of tiles to fetch in each dimension
             int tilesX = bottomRightTile.X - topLeftTile.X + 1;
             int tilesY = bottomRightTile.Y - topLeftTile.Y + 1;
 
-            // Debugging output
+            // Debugging output for calculated dimensions
             Console.WriteLine($"tilesX: {tilesX}, tilesY: {tilesY}");
 
             // Ensure tilesX and tilesY are valid
@@ -88,6 +92,10 @@ namespace TourPlanner.BusinessLogic.Map
                 Point bboxLeftTopRelativePos = new Point(bboxLeftTopGlobalPos.X - topLeftTilePixel.X, bboxLeftTopGlobalPos.Y - topLeftTilePixel.Y);
                 int width = bboxRightBottomGlobalPos.X - bboxLeftTopGlobalPos.X;
                 int height = bboxRightBottomGlobalPos.Y - bboxLeftTopGlobalPos.Y;
+
+                // Debugging output for cropping dimensions
+                Console.WriteLine($"bboxLeftTopRelativePos: X={bboxLeftTopRelativePos.X}, Y={bboxLeftTopRelativePos.Y}");
+                Console.WriteLine($"Width: {width}, Height: {height}");
 
                 // Ensure width and height are valid
                 if (width > 0 && height > 0)
