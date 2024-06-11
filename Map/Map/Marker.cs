@@ -30,7 +30,9 @@ namespace TourPlanner.BusinessLogic.Map
         public static string GetResource(Marker marker)
         {
             string filename = MarkerFilenames[marker] + ".png";
-            string resourcePath = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "Resources", filename);
+            // Adjusted to point to the original resource directory
+            string projectDirectory = Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)));
+            string resourcePath = Path.Combine(projectDirectory, "Map", "Resources", filename);
             Console.WriteLine($"Resource path: {resourcePath}"); // Log the resource path
             return resourcePath;
         }
