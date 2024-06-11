@@ -14,6 +14,7 @@ namespace TourPlanner.BusinessLogic.Map
     internal class MapAPIService
     {
         private readonly string API_KEY;
+
         public MapAPIService(string apiKey)
         {
             this.API_KEY = apiKey;
@@ -29,41 +30,41 @@ namespace TourPlanner.BusinessLogic.Map
             }
         }
 
-public async Task<Bitmap> GetTileAsync(Tile tile, int zoom)
-{
-    string uri = $"https://tile.openstreetmap.org/{zoom}/{tile.X}/{tile.Y}.png";
-    using (HttpClient client = new HttpClient())
-    {
-        // Füge Benutzeragenten-Header hinzu
-        client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
-
-        HttpResponseMessage response = await client.GetAsync(uri);
-
-        // Überprüfen, ob der HTTP-Request erfolgreich war
-        if (!response.IsSuccessStatusCode)
+        public async Task<Bitmap> GetTileAsync(Tile tile, int zoom)
         {
-            throw new HttpRequestException($"Failed to fetch tile image. Status code: {response.StatusCode}");
-        }
+            string uri = $"https://tile.openstreetmap.org/{zoom}/{tile.X}/{tile.Y}.png";
+            using (HttpClient client = new HttpClient())
+            {
+                // Adding a custom User-Agent header
+                client.DefaultRequestHeaders.UserAgent.ParseAdd("TourPlanner/1.0 Project for the SWEN-course");
 
-        using (Stream stream = await response.Content.ReadAsStreamAsync())
-        {
-            // Überprüfen, ob der Stream gültig ist
-            if (stream == null || stream.Length == 0)
-            {
-                throw new ArgumentException("Stream is null or empty.");
-            }
+                HttpResponseMessage response = await client.GetAsync(uri);
 
-            try
-            {
-                return new Bitmap(stream);
-            }
-            catch (ArgumentException ex)
-            {
-                throw new ArgumentException("The stream does not contain a valid image.", ex);
+                // Check if the HTTP request was successful
+                if (!response.IsSuccessStatusCode)
+                {
+                    throw new HttpRequestException($"Failed to fetch tile image. Status code: {response.StatusCode}");
+                }
+
+                using (Stream stream = await response.Content.ReadAsStreamAsync())
+                {
+                    // Check if the stream is valid
+                    if (stream == null || stream.Length == 0)
+                    {
+                        throw new ArgumentException("Stream is null or empty.");
+                    }
+
+                    try
+                    {
+                        return new Bitmap(stream);
+                    }
+                    catch (ArgumentException ex)
+                    {
+                        throw new ArgumentException("The stream does not contain a valid image.", ex);
+                    }
+                }
             }
         }
-    }
-}
 
         public async Task<string> GetDirectionsAsync(string startCoordinates, string endCoordinates)
         {
