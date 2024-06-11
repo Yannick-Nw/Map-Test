@@ -86,7 +86,7 @@ namespace TourPlanner.BusinessLogic.Map
             // Draw route waypoints as lines
             if (routeWaypoints.Count > 1)
             {
-                Pen pen = new Pen(Color.Blue, 2);
+                Pen pen = new Pen(Color.Red, 10);
                 for (int i = 0; i < routeWaypoints.Count - 1; i++)
                 {
                     Point point1 = Point.LatLonToPixel(routeWaypoints[i].Lat, routeWaypoints[i].Lon, Zoom);
