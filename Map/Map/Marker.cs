@@ -36,8 +36,19 @@ namespace TourPlanner.BusinessLogic.Map
         public static Bitmap GetMarkerImage(Marker marker)
         {
             string resourcePath = GetResource(marker);
-            return new Bitmap(resourcePath);
-        }
+            if (!File.Exists(resourcePath))
+            {
+                throw new FileNotFoundException($"The file '{resourcePath}' does not exist.");
+            }
 
+            try
+            {
+                return new Bitmap(resourcePath);
+            }
+            catch (ArgumentException ex)
+            {
+                throw new ArgumentException($"Failed to load the image from '{resourcePath}'. Ensure the file is a valid PNG image.", ex);
+            }
+        }
     }
 }
