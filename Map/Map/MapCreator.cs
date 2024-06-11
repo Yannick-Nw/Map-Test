@@ -44,6 +44,15 @@ namespace TourPlanner.BusinessLogic.Map
             int tilesX = bottomRightTile.X - topLeftTile.X + 1;
             int tilesY = bottomRightTile.Y - topLeftTile.Y + 1;
 
+            // Debugging output
+            Console.WriteLine($"tilesX: {tilesX}, tilesY: {tilesY}");
+
+            // Ensure tilesX and tilesY are valid
+            if (tilesX <= 0 || tilesY <= 0)
+            {
+                throw new ArgumentException("Invalid dimensions for the bitmap.");
+            }
+
             // Create a new image to hold all the tiles
             finalImage = new Bitmap(tilesX * 256, tilesY * 256);
             Graphics g = Graphics.FromImage(finalImage);
@@ -65,9 +74,6 @@ namespace TourPlanner.BusinessLogic.Map
             // Draw Markers
             foreach (var marker in markers)
             {
-                //using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(Marker.PIN_RED_32px.GetResource().ToString());
-                //Bitmap markerIcon = new Bitmap(stream);
-
                 Bitmap markerIcon = MarkerUtils.GetMarkerImage(Marker.PIN_RED_32px);
                 Point globalPos = Point.LatLonToPixel(marker.Lat, marker.Lon, Zoom);
                 Point relativePos = new Point(globalPos.X - topLeftTilePixel.X, globalPos.Y - topLeftTilePixel.Y);
@@ -82,32 +88,20 @@ namespace TourPlanner.BusinessLogic.Map
                 Point bboxLeftTopRelativePos = new Point(bboxLeftTopGlobalPos.X - topLeftTilePixel.X, bboxLeftTopGlobalPos.Y - topLeftTilePixel.Y);
                 int width = bboxRightBottomGlobalPos.X - bboxLeftTopGlobalPos.X;
                 int height = bboxRightBottomGlobalPos.Y - bboxLeftTopGlobalPos.Y;
-                finalImage = finalImage.Clone(new Rectangle(bboxLeftTopRelativePos.X, bboxLeftTopRelativePos.Y, width, height), finalImage.PixelFormat);
+
+                // Ensure width and height are valid
+                if (width > 0 && height > 0)
+                {
+                    finalImage = finalImage.Clone(new Rectangle(bboxLeftTopRelativePos.X, bboxLeftTopRelativePos.Y, width, height), finalImage.PixelFormat);
+                }
+                else
+                {
+                    throw new ArgumentException("Invalid dimensions for the cropped image.");
+                }
             }
 
             g.Dispose();
             return finalImage;
         }
-
-        /*
-        public Bitmap StitchTilesTogether(List<Bitmap> tiles)
-        {
-            int tileWidth = tiles[0].Width;
-            int tileHeight = tiles[0].Height;
-            int outputWidth = tileWidth * tiles.Count;
-            int outputHeight = tileHeight;
-
-            Bitmap output = new Bitmap(outputWidth, outputHeight);
-            using (Graphics g = Graphics.FromImage(output))
-            {
-                for (int i = 0; i < tiles.Count; i++)
-                {
-                    g.DrawImage(tiles[i], i * tileWidth, 0);
-                }
-            }
-
-            return output;
-        }
-        */
     }
 }
