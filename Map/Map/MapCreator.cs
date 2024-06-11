@@ -146,7 +146,7 @@ namespace TourPlanner.BusinessLogic.Map
             string directionsJson = await api.GetDirectionsAsync(startCoordinates, endCoordinates);
 
             // Log the JSON response
-            Console.WriteLine(directionsJson);
+            //Console.WriteLine(directionsJson);
 
             var waypoints = ParseWaypoints(directionsJson);
 
