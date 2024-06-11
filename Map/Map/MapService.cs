@@ -1,13 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
-//using Windows.Devices.Geolocation;
-using System.Configuration;
 
 namespace TourPlanner.BusinessLogic.Map
 {
@@ -33,14 +28,49 @@ namespace TourPlanner.BusinessLogic.Map
 
         public string SaveImage(string filename)
         {
-            string directoryPath = Path.Combine(Directory.GetCurrentDirectory(), "Images");
-            Directory.CreateDirectory(directoryPath); // Creates the directory if it doesn't exist
+            try
+            {
+                string directoryPath = FindDirectoryWithImages(AppContext.BaseDirectory);
 
-            string filePath = Path.Combine(directoryPath, filename + ".png");
-            finalImage.Save(filePath, ImageFormat.Png);
+                if (directoryPath == null)
+                {
+                    throw new DirectoryNotFoundException("Images directory not found.");
+                }
 
-            return filePath;
+                string filePath = Path.Combine(directoryPath, filename + ".png");
+                Console.WriteLine($"Saving image to: {filePath}");
+
+                finalImage.Save(filePath, ImageFormat.Png);
+
+                return filePath;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error: {ex.Message}");
+                throw;
+            }
         }
 
+        private static string FindDirectoryWithImages(string startDirectory)
+        {
+            string currentDirectory = startDirectory;
+            while (!string.IsNullOrEmpty(currentDirectory))
+            {
+                string potentialPath = Path.Combine(currentDirectory, "Map", "Images");
+                if (Directory.Exists(potentialPath))
+                {
+                    return potentialPath;
+                }
+                currentDirectory = Directory.GetParent(currentDirectory)?.FullName;
+            }
+
+            // Create the directory if it doesn't exist
+            string targetPath = Path.Combine(AppContext.BaseDirectory, "Map", "Images");
+            if (!Directory.Exists(targetPath))
+            {
+                Directory.CreateDirectory(targetPath);
+            }
+            return targetPath;
+        }
     }
 }
