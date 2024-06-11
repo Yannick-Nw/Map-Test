@@ -116,9 +116,15 @@ namespace TourPlanner.BusinessLogic.Map
 
         public async Task AddRouteAsync(MapAPIService api, GeoCoordinate start, GeoCoordinate end)
         {
-            string startCoordinates = $"{start.Lon},{start.Lat}";
-            string endCoordinates = $"{end.Lon},{end.Lat}";
+            // Ensure the correct decimal separator
+            string startCoordinates = $"{start.Lon.ToString(System.Globalization.CultureInfo.InvariantCulture)},{start.Lat.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+            string endCoordinates = $"{end.Lon.ToString(System.Globalization.CultureInfo.InvariantCulture)},{end.Lat.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+            
             string directionsJson = await api.GetDirectionsAsync(startCoordinates, endCoordinates);
+
+            // Log the JSON response
+            Console.WriteLine(directionsJson);
+
             var waypoints = ParseWaypoints(directionsJson);
 
             foreach (var waypoint in waypoints)
@@ -132,16 +138,34 @@ namespace TourPlanner.BusinessLogic.Map
             var waypoints = new List<GeoCoordinate>();
             using (JsonDocument doc = JsonDocument.Parse(directionsJson))
             {
-                var coordinates = doc.RootElement
-                                     .GetProperty("routes")[0]
-                                     .GetProperty("geometry")
-                                     .GetProperty("coordinates");
+                var root = doc.RootElement;
 
-                foreach (var coordinate in coordinates.EnumerateArray())
+                if (root.TryGetProperty("routes", out JsonElement routes))
                 {
-                    var lon = coordinate[0].GetDouble();
-                    var lat = coordinate[1].GetDouble();
-                    waypoints.Add(new GeoCoordinate(lon, lat));
+                    if (routes.GetArrayLength() > 0 && routes[0].TryGetProperty("geometry", out JsonElement geometry))
+                    {
+                        if (geometry.TryGetProperty("coordinates", out JsonElement coordinates))
+                        {
+                            foreach (var coordinate in coordinates.EnumerateArray())
+                            {
+                                var lon = coordinate[0].GetDouble();
+                                var lat = coordinate[1].GetDouble();
+                                waypoints.Add(new GeoCoordinate(lon, lat));
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine("No 'coordinates' property found in 'geometry'.");
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine("No 'geometry' property found in the first route.");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("No 'routes' property found in the root element.");
                 }
             }
             return waypoints;
