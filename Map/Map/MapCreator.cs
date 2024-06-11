@@ -29,11 +29,17 @@ namespace TourPlanner.BusinessLogic.Map
         public bool CropImage { get; set; } = true;
 
         private readonly List<GeoCoordinate> markers = new();
+        private readonly List<GeoCoordinate> routeWaypoints = new();
         private Bitmap finalImage;
 
         public void AddMarker(GeoCoordinate marker)
         {
             markers.Add(marker);
+        }
+
+        public void AddRouteWaypoints(List<GeoCoordinate> waypoints)
+        {
+            routeWaypoints.AddRange(waypoints);
         }
 
         public async Task<Bitmap> GenerateImage(MapAPIService api)
@@ -76,6 +82,23 @@ namespace TourPlanner.BusinessLogic.Map
             }
 
             Point topLeftTilePixel = new Point(topLeftTile.X * 256, topLeftTile.Y * 256);
+
+            // Draw route waypoints as lines
+            if (routeWaypoints.Count > 1)
+            {
+                Pen pen = new Pen(Color.Blue, 2);
+                for (int i = 0; i < routeWaypoints.Count - 1; i++)
+                {
+                    Point point1 = Point.LatLonToPixel(routeWaypoints[i].Lat, routeWaypoints[i].Lon, Zoom);
+                    Point point2 = Point.LatLonToPixel(routeWaypoints[i + 1].Lat, routeWaypoints[i + 1].Lon, Zoom);
+
+                    Point relativePos1 = new Point(point1.X - topLeftTilePixel.X, point1.Y - topLeftTilePixel.Y);
+                    Point relativePos2 = new Point(point2.X - topLeftTilePixel.X, point2.Y - topLeftTilePixel.Y);
+
+                    g.DrawLine(pen, relativePos1.X, relativePos1.Y, relativePos2.X, relativePos2.Y);
+                }
+                pen.Dispose();
+            }
 
             // Draw Markers
             foreach (var marker in markers)
@@ -127,10 +150,7 @@ namespace TourPlanner.BusinessLogic.Map
 
             var waypoints = ParseWaypoints(directionsJson);
 
-            foreach (var waypoint in waypoints)
-            {
-                AddMarker(waypoint);
-            }
+            AddRouteWaypoints(waypoints);
         }
 
         private List<GeoCoordinate> ParseWaypoints(string directionsJson)
