@@ -15,6 +15,7 @@ namespace TourPlanner.BusinessLogic.Map
         private readonly double minLat;
         private readonly double maxLon;
         private readonly double maxLat;
+
         public MapCreator(GeoCoordinate start, GeoCoordinate end)
         {
             this.minLon = Math.Min(start.Lon, end.Lon);
@@ -110,6 +111,39 @@ namespace TourPlanner.BusinessLogic.Map
 
             g.Dispose();
             return finalImage;
+        }
+
+        public async Task AddRouteAsync(MapAPIService api, GeoCoordinate start, GeoCoordinate end)
+        {
+            string startCoordinates = $"{start.Lon},{start.Lat}";
+            string endCoordinates = $"{end.Lon},{end.Lat}";
+            string directionsJson = await api.GetDirectionsAsync(startCoordinates, endCoordinates);
+            var waypoints = ParseWaypoints(directionsJson);
+
+            foreach (var waypoint in waypoints)
+            {
+                AddMarker(waypoint);
+            }
+        }
+
+        private List<GeoCoordinate> ParseWaypoints(string directionsJson)
+        {
+            var waypoints = new List<GeoCoordinate>();
+            using (JsonDocument doc = JsonDocument.Parse(directionsJson))
+            {
+                var coordinates = doc.RootElement
+                                     .GetProperty("routes")[0]
+                                     .GetProperty("geometry")
+                                     .GetProperty("coordinates");
+
+                foreach (var coordinate in coordinates.EnumerateArray())
+                {
+                    var lon = coordinate[0].GetDouble();
+                    var lat = coordinate[1].GetDouble();
+                    waypoints.Add(new GeoCoordinate(lon, lat));
+                }
+            }
+            return waypoints;
         }
     }
 }
