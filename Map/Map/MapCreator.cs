@@ -95,11 +95,12 @@ namespace TourPlanner.BusinessLogic.Map
                     Point relativePos1 = new Point(point1.X - topLeftTilePixel.X, point1.Y - topLeftTilePixel.Y);
                     Point relativePos2 = new Point(point2.X - topLeftTilePixel.X, point2.Y - topLeftTilePixel.Y);
 
-                    // Debugging output for route points
-                    Console.WriteLine($"Route Point 1: X={relativePos1.X}, Y={relativePos1.Y}");
-                    Console.WriteLine($"Route Point 2: X={relativePos2.X}, Y={relativePos2.Y}");
-
-                    g.DrawLine(pen, relativePos1.X, relativePos1.Y, relativePos2.X, relativePos2.Y);
+                    // Ensure points are within image bounds before drawing
+                    if (IsWithinBounds(relativePos1, finalImage.Width, finalImage.Height) &&
+                        IsWithinBounds(relativePos2, finalImage.Width, finalImage.Height))
+                    {
+                        g.DrawLine(pen, relativePos1.X, relativePos1.Y, relativePos2.X, relativePos2.Y);
+                    }
                 }
 
                 pen.Dispose();
@@ -112,10 +113,11 @@ namespace TourPlanner.BusinessLogic.Map
                 Point globalPos = Point.LatLonToPixel(marker.Lat, marker.Lon, Zoom);
                 Point relativePos = new Point(globalPos.X - topLeftTilePixel.X, globalPos.Y - topLeftTilePixel.Y);
 
-                // Debugging output for marker positions
-                Console.WriteLine($"Marker: Lat={marker.Lat}, Lon={marker.Lon}, X={relativePos.X}, Y={relativePos.Y}");
-
-                g.DrawImage(markerIcon, relativePos.X, relativePos.Y);
+                // Ensure marker is within image bounds before drawing
+                if (IsWithinBounds(relativePos, finalImage.Width, finalImage.Height))
+                {
+                    g.DrawImage(markerIcon, relativePos.X, relativePos.Y);
+                }
             }
 
             // Crop the image to the exact bounding box
@@ -207,6 +209,11 @@ namespace TourPlanner.BusinessLogic.Map
             }
 
             return waypoints;
+        }
+
+        private bool IsWithinBounds(Point point, int width, int height)
+        {
+            return point.X >= 0 && point.X < width && point.Y >= 0 && point.Y < height;
         }
     }
 }
