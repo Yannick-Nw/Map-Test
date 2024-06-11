@@ -95,12 +95,13 @@ namespace TourPlanner.BusinessLogic.Map
                     Point relativePos1 = new Point(point1.X - topLeftTilePixel.X, point1.Y - topLeftTilePixel.Y);
                     Point relativePos2 = new Point(point2.X - topLeftTilePixel.X, point2.Y - topLeftTilePixel.Y);
 
-            // Debugging output for route points
-            Console.WriteLine($"Route Point 1: X={relativePos1.X}, Y={relativePos1.Y}");
-            Console.WriteLine($"Route Point 2: X={relativePos2.X}, Y={relativePos2.Y}");
+                    // Debugging output for route points
+                    Console.WriteLine($"Route Point 1: X={relativePos1.X}, Y={relativePos1.Y}");
+                    Console.WriteLine($"Route Point 2: X={relativePos2.X}, Y={relativePos2.Y}");
 
                     g.DrawLine(pen, relativePos1.X, relativePos1.Y, relativePos2.X, relativePos2.Y);
                 }
+
                 pen.Dispose();
             }
 
@@ -111,8 +112,8 @@ namespace TourPlanner.BusinessLogic.Map
                 Point globalPos = Point.LatLonToPixel(marker.Lat, marker.Lon, Zoom);
                 Point relativePos = new Point(globalPos.X - topLeftTilePixel.X, globalPos.Y - topLeftTilePixel.Y);
 
-        // Debugging output for marker positions
-        Console.WriteLine($"Marker: Lat={marker.Lat}, Lon={marker.Lon}, X={relativePos.X}, Y={relativePos.Y}");
+                // Debugging output for marker positions
+                Console.WriteLine($"Marker: Lat={marker.Lat}, Lon={marker.Lon}, X={relativePos.X}, Y={relativePos.Y}");
 
                 g.DrawImage(markerIcon, relativePos.X, relativePos.Y);
             }
@@ -122,18 +123,23 @@ namespace TourPlanner.BusinessLogic.Map
             {
                 Point bboxLeftTopGlobalPos = Point.LatLonToPixel(maxLat, minLon, Zoom);
                 Point bboxRightBottomGlobalPos = Point.LatLonToPixel(minLat, maxLon, Zoom);
-                Point bboxLeftTopRelativePos = new Point(bboxLeftTopGlobalPos.X - topLeftTilePixel.X, bboxLeftTopGlobalPos.Y - topLeftTilePixel.Y);
+                Point bboxLeftTopRelativePos = new Point(bboxLeftTopGlobalPos.X - topLeftTilePixel.X,
+                    bboxLeftTopGlobalPos.Y - topLeftTilePixel.Y);
                 int width = bboxRightBottomGlobalPos.X - bboxLeftTopGlobalPos.X;
                 int height = bboxRightBottomGlobalPos.Y - bboxLeftTopGlobalPos.Y;
 
                 // Debugging output for cropping dimensions
-                Console.WriteLine($"bboxLeftTopRelativePos: X={bboxLeftTopRelativePos.X}, Y={bboxLeftTopRelativePos.Y}");
+                Console.WriteLine(
+                    $"bboxLeftTopRelativePos: X={bboxLeftTopRelativePos.X}, Y={bboxLeftTopRelativePos.Y}");
                 Console.WriteLine($"Width: {width}, Height: {height}");
 
                 // Ensure width and height are valid
                 if (width > 0 && height > 0)
                 {
-                    finalImage = finalImage.Clone(new Rectangle(bboxLeftTopRelativePos.X, bboxLeftTopRelativePos.Y, width, height), finalImage.PixelFormat);
+                    finalImage =
+                        finalImage.Clone(
+                            new Rectangle(bboxLeftTopRelativePos.X, bboxLeftTopRelativePos.Y, width, height),
+                            finalImage.PixelFormat);
                 }
                 else
                 {
@@ -148,9 +154,11 @@ namespace TourPlanner.BusinessLogic.Map
         public async Task AddRouteAsync(MapAPIService api, GeoCoordinate start, GeoCoordinate end)
         {
             // Ensure the correct decimal separator
-            string startCoordinates = $"{start.Lon.ToString(System.Globalization.CultureInfo.InvariantCulture)},{start.Lat.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
-            string endCoordinates = $"{end.Lon.ToString(System.Globalization.CultureInfo.InvariantCulture)},{end.Lat.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
-            
+            string startCoordinates =
+                $"{start.Lon.ToString(System.Globalization.CultureInfo.InvariantCulture)},{start.Lat.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+            string endCoordinates =
+                $"{end.Lon.ToString(System.Globalization.CultureInfo.InvariantCulture)},{end.Lat.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+
             string directionsJson = await api.GetDirectionsAsync(startCoordinates, endCoordinates);
 
             // Log the JSON response
@@ -168,9 +176,10 @@ namespace TourPlanner.BusinessLogic.Map
             {
                 var root = doc.RootElement;
 
-                if (root.TryGetProperty("routes", out JsonElement routes))
+                if (root.TryGetProperty("features", out JsonElement features))
                 {
-                    if (routes.GetArrayLength() > 0 && routes[0].TryGetProperty("geometry", out JsonElement geometry))
+                    if (features.GetArrayLength() > 0 &&
+                        features[0].TryGetProperty("geometry", out JsonElement geometry))
                     {
                         if (geometry.TryGetProperty("coordinates", out JsonElement coordinates))
                         {
@@ -188,14 +197,15 @@ namespace TourPlanner.BusinessLogic.Map
                     }
                     else
                     {
-                        Console.WriteLine("No 'geometry' property found in the first route.");
+                        Console.WriteLine("No 'geometry' property found in the first feature.");
                     }
                 }
                 else
                 {
-                    Console.WriteLine("No 'routes' property found in the root element.");
+                    Console.WriteLine("No 'features' property found in the root element.");
                 }
             }
+
             return waypoints;
         }
     }
