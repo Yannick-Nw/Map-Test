@@ -6,7 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Windows.Devices.Geolocation;
+//using Windows.Devices.Geolocation;
 using System.Configuration;
 
 namespace TourPlanner.BusinessLogic.Map
@@ -17,7 +17,7 @@ namespace TourPlanner.BusinessLogic.Map
 
         public async Task<string> GetMap(string adressStart, string adressEnd)
         {
-            string apiKey = ConfigurationManager.AppSettings["TourPlannerApiKey"];
+            string apiKey = "5b3ce3597851110001cf6248cc5cdbbf7c0b4192a6dac8519aa7c442";
             var request = new MapAPIService(apiKey);
             GeoCoordinate locationDataStart = await request.GetGeoCodeAsync(adressStart);
             GeoCoordinate locationDataEnd = await request.GetGeoCodeAsync(adressEnd);
