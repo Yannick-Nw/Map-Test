@@ -18,6 +18,7 @@ namespace TourPlanner.BusinessLogic.Map
         {
             this.API_KEY = apiKey;
         }
+
         public async Task<GeoCoordinate> GetGeoCodeAsync(string address)
         {
             string uri = $"https://api.openrouteservice.org/geocode/search?api_key={API_KEY}&text={address}";
@@ -34,9 +35,29 @@ namespace TourPlanner.BusinessLogic.Map
             using (HttpClient client = new HttpClient())
             {
                 HttpResponseMessage response = await client.GetAsync(uri);
+
+                // Überprüfen, ob der HTTP-Request erfolgreich war
+                if (!response.IsSuccessStatusCode)
+                {
+                    throw new HttpRequestException($"Failed to fetch tile image. Status code: {response.StatusCode}");
+                }
+
                 using (Stream stream = await response.Content.ReadAsStreamAsync())
                 {
-                    return new Bitmap(stream);
+                    // Überprüfen, ob der Stream gültig ist
+                    if (stream == null || stream.Length == 0)
+                    {
+                        throw new ArgumentException("Stream is null or empty.");
+                    }
+
+                    try
+                    {
+                        return new Bitmap(stream);
+                    }
+                    catch (ArgumentException ex)
+                    {
+                        throw new ArgumentException("The stream does not contain a valid image.", ex);
+                    }
                 }
             }
         }
@@ -59,17 +80,6 @@ namespace TourPlanner.BusinessLogic.Map
             // Parse coordinates
             var coordinates = root.GetProperty("features")[0].GetProperty("geometry").GetProperty("coordinates");
             GeoCoordinate coordinatesData = new GeoCoordinate(coordinates[0].GetDouble(), coordinates[1].GetDouble());
-
-            /*
-            // Parse bbox
-            var bboxToken = root.GetProperty("bbox");
-            double[] bbox = new double[4];
-            int i = 0;
-            foreach (var b in bboxToken.EnumerateArray())
-            {
-                bbox[i++] = b.GetDouble();
-            }
-            */
 
             return (coordinatesData);
         }
