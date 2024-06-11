@@ -29,38 +29,41 @@ namespace TourPlanner.BusinessLogic.Map
             }
         }
 
-        public async Task<Bitmap> GetTileAsync(Tile tile, int zoom)
+public async Task<Bitmap> GetTileAsync(Tile tile, int zoom)
+{
+    string uri = $"https://tile.openstreetmap.org/{zoom}/{tile.X}/{tile.Y}.png";
+    using (HttpClient client = new HttpClient())
+    {
+        // Füge Benutzeragenten-Header hinzu
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
+
+        HttpResponseMessage response = await client.GetAsync(uri);
+
+        // Überprüfen, ob der HTTP-Request erfolgreich war
+        if (!response.IsSuccessStatusCode)
         {
-            string uri = $"https://tile.openstreetmap.org/{zoom}/{tile.X}/{tile.Y}.png";
-            using (HttpClient client = new HttpClient())
+            throw new HttpRequestException($"Failed to fetch tile image. Status code: {response.StatusCode}");
+        }
+
+        using (Stream stream = await response.Content.ReadAsStreamAsync())
+        {
+            // Überprüfen, ob der Stream gültig ist
+            if (stream == null || stream.Length == 0)
             {
-                HttpResponseMessage response = await client.GetAsync(uri);
+                throw new ArgumentException("Stream is null or empty.");
+            }
 
-                // Überprüfen, ob der HTTP-Request erfolgreich war
-                if (!response.IsSuccessStatusCode)
-                {
-                    throw new HttpRequestException($"Failed to fetch tile image. Status code: {response.StatusCode}");
-                }
-
-                using (Stream stream = await response.Content.ReadAsStreamAsync())
-                {
-                    // Überprüfen, ob der Stream gültig ist
-                    if (stream == null || stream.Length == 0)
-                    {
-                        throw new ArgumentException("Stream is null or empty.");
-                    }
-
-                    try
-                    {
-                        return new Bitmap(stream);
-                    }
-                    catch (ArgumentException ex)
-                    {
-                        throw new ArgumentException("The stream does not contain a valid image.", ex);
-                    }
-                }
+            try
+            {
+                return new Bitmap(stream);
+            }
+            catch (ArgumentException ex)
+            {
+                throw new ArgumentException("The stream does not contain a valid image.", ex);
             }
         }
+    }
+}
 
         public async Task<string> GetDirectionsAsync(string startCoordinates, string endCoordinates)
         {
