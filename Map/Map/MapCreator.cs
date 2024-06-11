@@ -95,6 +95,10 @@ namespace TourPlanner.BusinessLogic.Map
                     Point relativePos1 = new Point(point1.X - topLeftTilePixel.X, point1.Y - topLeftTilePixel.Y);
                     Point relativePos2 = new Point(point2.X - topLeftTilePixel.X, point2.Y - topLeftTilePixel.Y);
 
+            // Debugging output for route points
+            Console.WriteLine($"Route Point 1: X={relativePos1.X}, Y={relativePos1.Y}");
+            Console.WriteLine($"Route Point 2: X={relativePos2.X}, Y={relativePos2.Y}");
+
                     g.DrawLine(pen, relativePos1.X, relativePos1.Y, relativePos2.X, relativePos2.Y);
                 }
                 pen.Dispose();
@@ -106,6 +110,10 @@ namespace TourPlanner.BusinessLogic.Map
                 Bitmap markerIcon = MarkerUtils.GetMarkerImage(Marker.PIN_RED_32px);
                 Point globalPos = Point.LatLonToPixel(marker.Lat, marker.Lon, Zoom);
                 Point relativePos = new Point(globalPos.X - topLeftTilePixel.X, globalPos.Y - topLeftTilePixel.Y);
+
+        // Debugging output for marker positions
+        Console.WriteLine($"Marker: Lat={marker.Lat}, Lon={marker.Lon}, X={relativePos.X}, Y={relativePos.Y}");
+
                 g.DrawImage(markerIcon, relativePos.X, relativePos.Y);
             }
 
