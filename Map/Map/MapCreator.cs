@@ -59,125 +59,138 @@ namespace TourPlanner.BusinessLogic.Map
             // Debugging output for calculated dimensions
             Console.WriteLine($"tilesX: {tilesX}, tilesY: {tilesY}");
 
+            int bitmapWidth = tilesX * 256;
+            int bitmapHeight = tilesY * 256;
+
+            Console.WriteLine($"Bitmap Width: {bitmapWidth}, Bitmap Height: {bitmapHeight}");
+
             // Ensure tilesX and tilesY are valid
             if (tilesX <= 0 || tilesY <= 0)
             {
                 throw new ArgumentException("Invalid dimensions for the bitmap.");
             }
 
+            // Check if the dimensions are within reasonable limits
+            if (bitmapWidth > 30000 || bitmapHeight > 30000)
+            {
+                throw new ArgumentException("Bitmap dimensions exceed allowable limits.");
+            }
+
             // Create a new image to hold all the tiles
             try
             {
-                finalImage = new Bitmap(tilesX * 256, tilesY * 256);
+                finalImage = new Bitmap(bitmapWidth, bitmapHeight);
             }
             catch (ArgumentException e)
             {
                 throw new ArgumentException("Bitmap creation failed with the given dimensions.", e);
             }
 
-            Graphics g = Graphics.FromImage(finalImage);
-
-            // Fetch and draw each tile
-            for (int x = topLeftTile.X; x <= bottomRightTile.X; x++)
+            using (Graphics g = Graphics.FromImage(finalImage))
             {
-                for (int y = topLeftTile.Y; y <= bottomRightTile.Y; y++)
+                for (int x = topLeftTile.X; x <= bottomRightTile.X; x++)
                 {
-                    Bitmap tileImage;
-                    try
+                    for (int y = topLeftTile.Y; y <= bottomRightTile.Y; y++)
                     {
-                        tileImage = await api.GetTileAsync(new Tile(x, y), Zoom);
-                    }
-                    catch (Exception e)
-                    {
-                        throw new InvalidOperationException($"Failed to fetch tile image for X={x}, Y={y}.", e);
-                    }
+                        Bitmap tileImage;
+                        try
+                        {
+                            tileImage = await api.GetTileAsync(new Tile(x, y), Zoom);
+                        }
+                        catch (Exception e)
+                        {
+                            throw new InvalidOperationException($"Failed to fetch tile image for X={x}, Y={y}.", e);
+                        }
 
-                    if (tileImage == null)
-                    {
-                        throw new InvalidOperationException($"Tile image for X={x}, Y={y} is null.");
-                    }
+                        if (tileImage == null)
+                        {
+                            throw new InvalidOperationException($"Tile image for X={x}, Y={y} is null.");
+                        }
 
-                    int xPos = (x - topLeftTile.X) * 256;
-                    int yPos = (y - topLeftTile.Y) * 256;
-                    g.DrawImage(tileImage, xPos, yPos);
+                        int xPos = (x - topLeftTile.X) * 256;
+                        int yPos = (y - topLeftTile.Y) * 256;
+                        g.DrawImage(tileImage, xPos, yPos);
+                    }
+                }
+
+                Point topLeftTilePixel = new Point(topLeftTile.X * 256, topLeftTile.Y * 256);
+
+                // Draw route waypoints as lines
+                if (routeWaypoints.Count > 1)
+                {
+                    using (Pen pen = new Pen(Color.Red, 10))
+                    {
+                        for (int i = 0; i < routeWaypoints.Count - 1; i++)
+                        {
+                            Point point1 = Point.LatLonToPixel(routeWaypoints[i].Lat, routeWaypoints[i].Lon, Zoom);
+                            Point point2 = Point.LatLonToPixel(routeWaypoints[i + 1].Lat, routeWaypoints[i + 1].Lon,
+                                Zoom);
+
+                            Point relativePos1 = new Point(point1.X - topLeftTilePixel.X,
+                                point1.Y - topLeftTilePixel.Y);
+                            Point relativePos2 = new Point(point2.X - topLeftTilePixel.X,
+                                point2.Y - topLeftTilePixel.Y);
+
+                            // Ensure points are within image bounds before drawing
+                            if (IsWithinBounds(relativePos1, finalImage.Width, finalImage.Height) &&
+                                IsWithinBounds(relativePos2, finalImage.Width, finalImage.Height))
+                            {
+                                g.DrawLine(pen, relativePos1.X, relativePos1.Y, relativePos2.X, relativePos2.Y);
+                            }
+                        }
+                    }
+                }
+
+                // Draw Markers
+                foreach (var marker in markers)
+                {
+                    Bitmap markerIcon = MarkerUtils.GetMarkerImage(Marker.PIN_RED_32px);
+                    Point globalPos = Point.LatLonToPixel(marker.Lat, marker.Lon, Zoom);
+                    Point relativePos = new Point(globalPos.X - topLeftTilePixel.X, globalPos.Y - topLeftTilePixel.Y);
+
+                    // Ensure marker is within image bounds before drawing
+                    if (IsWithinBounds(relativePos, finalImage.Width, finalImage.Height))
+                    {
+                        g.DrawImage(markerIcon, relativePos.X, relativePos.Y);
+                    }
+                }
+
+                // Crop the image to the exact bounding box
+                if (CropImage)
+                {
+                    Point bboxLeftTopGlobalPos = Point.LatLonToPixel(maxLat, minLon, Zoom);
+                    Point bboxRightBottomGlobalPos = Point.LatLonToPixel(minLat, maxLon, Zoom);
+                    Point bboxLeftTopRelativePos = new Point(bboxLeftTopGlobalPos.X - topLeftTilePixel.X,
+                        bboxLeftTopGlobalPos.Y - topLeftTilePixel.Y);
+                    int width = bboxRightBottomGlobalPos.X - bboxLeftTopGlobalPos.X;
+                    int height = bboxRightBottomGlobalPos.Y - bboxLeftTopGlobalPos.Y;
+
+                    Console.WriteLine(
+                        $"bboxLeftTopRelativePos: X={bboxLeftTopRelativePos.X}, Y={bboxLeftTopRelativePos.Y}");
+                    Console.WriteLine($"Width: {width}, Height: {height}");
+
+                    // Ensure width and height are valid
+                    if (width > 0 && height > 0)
+                    {
+                        try
+                        {
+                            finalImage =
+                                finalImage.Clone(
+                                    new Rectangle(bboxLeftTopRelativePos.X, bboxLeftTopRelativePos.Y, width, height),
+                                    finalImage.PixelFormat);
+                        }
+                        catch (Exception e)
+                        {
+                            throw new ArgumentException("Cropping the image failed due to invalid dimensions.", e);
+                        }
+                    }
+                    else
+                    {
+                        throw new ArgumentException("Invalid dimensions for the cropped image.");
+                    }
                 }
             }
 
-            Point topLeftTilePixel = new Point(topLeftTile.X * 256, topLeftTile.Y * 256);
-
-            // Draw route waypoints as lines
-            if (routeWaypoints.Count > 1)
-            {
-                Pen pen = new Pen(Color.Red, 10);
-                for (int i = 0; i < routeWaypoints.Count - 1; i++)
-                {
-                    Point point1 = Point.LatLonToPixel(routeWaypoints[i].Lat, routeWaypoints[i].Lon, Zoom);
-                    Point point2 = Point.LatLonToPixel(routeWaypoints[i + 1].Lat, routeWaypoints[i + 1].Lon, Zoom);
-
-                    Point relativePos1 = new Point(point1.X - topLeftTilePixel.X, point1.Y - topLeftTilePixel.Y);
-                    Point relativePos2 = new Point(point2.X - topLeftTilePixel.X, point2.Y - topLeftTilePixel.Y);
-
-                    // Ensure points are within image bounds before drawing
-                    if (IsWithinBounds(relativePos1, finalImage.Width, finalImage.Height) &&
-                        IsWithinBounds(relativePos2, finalImage.Width, finalImage.Height))
-                    {
-                        g.DrawLine(pen, relativePos1.X, relativePos1.Y, relativePos2.X, relativePos2.Y);
-                    }
-                }
-
-                pen.Dispose();
-            }
-
-            // Draw Markers
-            foreach (var marker in markers)
-            {
-                Bitmap markerIcon = MarkerUtils.GetMarkerImage(Marker.PIN_RED_32px);
-                Point globalPos = Point.LatLonToPixel(marker.Lat, marker.Lon, Zoom);
-                Point relativePos = new Point(globalPos.X - topLeftTilePixel.X, globalPos.Y - topLeftTilePixel.Y);
-
-                // Ensure marker is within image bounds before drawing
-                if (IsWithinBounds(relativePos, finalImage.Width, finalImage.Height))
-                {
-                    g.DrawImage(markerIcon, relativePos.X, relativePos.Y);
-                }
-            }
-
-            // Crop the image to the exact bounding box
-            if (CropImage)
-            {
-                Point bboxLeftTopGlobalPos = Point.LatLonToPixel(maxLat, minLon, Zoom);
-                Point bboxRightBottomGlobalPos = Point.LatLonToPixel(minLat, maxLon, Zoom);
-                Point bboxLeftTopRelativePos = new Point(bboxLeftTopGlobalPos.X - topLeftTilePixel.X,
-                    bboxLeftTopGlobalPos.Y - topLeftTilePixel.Y);
-                int width = bboxRightBottomGlobalPos.X - bboxLeftTopGlobalPos.X;
-                int height = bboxRightBottomGlobalPos.Y - bboxLeftTopGlobalPos.Y;
-
-                Console.WriteLine(
-                    $"bboxLeftTopRelativePos: X={bboxLeftTopRelativePos.X}, Y={bboxLeftTopRelativePos.Y}");
-                Console.WriteLine($"Width: {width}, Height: {height}");
-
-                // Ensure width and height are valid
-                if (width > 0 && height > 0)
-                {
-                    try
-                    {
-                        finalImage =
-                            finalImage.Clone(
-                                new Rectangle(bboxLeftTopRelativePos.X, bboxLeftTopRelativePos.Y, width, height),
-                                finalImage.PixelFormat);
-                    }
-                    catch (Exception e)
-                    {
-                        throw new ArgumentException("Cropping the image failed due to invalid dimensions.", e);
-                    }
-                }
-                else
-                {
-                    throw new ArgumentException("Invalid dimensions for the cropped image.");
-                }
-            }
-
-            g.Dispose();
             return finalImage;
         }
 
