@@ -66,7 +66,15 @@ namespace TourPlanner.BusinessLogic.Map
             }
 
             // Create a new image to hold all the tiles
-            finalImage = new Bitmap(tilesX * 256, tilesY * 256);
+            try
+            {
+                finalImage = new Bitmap(tilesX * 256, tilesY * 256);
+            }
+            catch (ArgumentException e)
+            {
+                throw new ArgumentException("Bitmap creation failed with the given dimensions.", e);
+            }
+
             Graphics g = Graphics.FromImage(finalImage);
 
             // Fetch and draw each tile
@@ -74,7 +82,21 @@ namespace TourPlanner.BusinessLogic.Map
             {
                 for (int y = topLeftTile.Y; y <= bottomRightTile.Y; y++)
                 {
-                    Bitmap tileImage = await api.GetTileAsync(new Tile(x, y), Zoom);
+                    Bitmap tileImage;
+                    try
+                    {
+                        tileImage = await api.GetTileAsync(new Tile(x, y), Zoom);
+                    }
+                    catch (Exception e)
+                    {
+                        throw new InvalidOperationException($"Failed to fetch tile image for X={x}, Y={y}.", e);
+                    }
+
+                    if (tileImage == null)
+                    {
+                        throw new InvalidOperationException($"Tile image for X={x}, Y={y} is null.");
+                    }
+
                     int xPos = (x - topLeftTile.X) * 256;
                     int yPos = (y - topLeftTile.Y) * 256;
                     g.DrawImage(tileImage, xPos, yPos);
@@ -130,7 +152,6 @@ namespace TourPlanner.BusinessLogic.Map
                 int width = bboxRightBottomGlobalPos.X - bboxLeftTopGlobalPos.X;
                 int height = bboxRightBottomGlobalPos.Y - bboxLeftTopGlobalPos.Y;
 
-                // Debugging output for cropping dimensions
                 Console.WriteLine(
                     $"bboxLeftTopRelativePos: X={bboxLeftTopRelativePos.X}, Y={bboxLeftTopRelativePos.Y}");
                 Console.WriteLine($"Width: {width}, Height: {height}");
@@ -138,10 +159,17 @@ namespace TourPlanner.BusinessLogic.Map
                 // Ensure width and height are valid
                 if (width > 0 && height > 0)
                 {
-                    finalImage =
-                        finalImage.Clone(
-                            new Rectangle(bboxLeftTopRelativePos.X, bboxLeftTopRelativePos.Y, width, height),
-                            finalImage.PixelFormat);
+                    try
+                    {
+                        finalImage =
+                            finalImage.Clone(
+                                new Rectangle(bboxLeftTopRelativePos.X, bboxLeftTopRelativePos.Y, width, height),
+                                finalImage.PixelFormat);
+                    }
+                    catch (Exception e)
+                    {
+                        throw new ArgumentException("Cropping the image failed due to invalid dimensions.", e);
+                    }
                 }
                 else
                 {
