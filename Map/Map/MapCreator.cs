@@ -66,32 +66,28 @@ namespace TourPlanner.BusinessLogic.Map
 
             Console.WriteLine($"Total Width: {totalWidth}, Total Height: {totalHeight}");
 
-            // Calculate the number of tiles in each dimension
-            int numXTiles = (int)Math.Ceiling((double)totalWidth / maxBitmapDimension);
-            int numYTiles = (int)Math.Ceiling((double)totalHeight / maxBitmapDimension);
-
-            // Create the final image
+            // Create the final image in smaller parts
             Bitmap finalImage = new Bitmap(totalWidth, totalHeight);
 
             using (Graphics finalGraphics = Graphics.FromImage(finalImage))
             {
-                for (int tileX = 0; tileX < numXTiles; tileX++)
+                for (int x = 0; x < tilesX; x += maxBitmapDimension / 256)
                 {
-                    for (int tileY = 0; tileY < numYTiles; tileY++)
+                    for (int y = 0; y < tilesY; y += maxBitmapDimension / 256)
                     {
-                        int tileWidth = Math.Min(maxBitmapDimension, totalWidth - (tileX * maxBitmapDimension));
-                        int tileHeight = Math.Min(maxBitmapDimension, totalHeight - (tileY * maxBitmapDimension));
+                        int tileWidth = Math.Min(maxBitmapDimension, (tilesX - x) * 256);
+                        int tileHeight = Math.Min(maxBitmapDimension, (tilesY - y) * 256);
 
                         Bitmap tileImage = new Bitmap(tileWidth, tileHeight);
 
                         using (Graphics tileGraphics = Graphics.FromImage(tileImage))
                         {
-                            for (int x = 0; x < tileWidth / 256; x++)
+                            for (int i = 0; i < tileWidth / 256; i++)
                             {
-                                for (int y = 0; y < tileHeight / 256; y++)
+                                for (int j = 0; j < tileHeight / 256; j++)
                                 {
-                                    int globalX = topLeftTile.X + tileX * (maxBitmapDimension / 256) + x;
-                                    int globalY = topLeftTile.Y + tileY * (maxBitmapDimension / 256) + y;
+                                    int globalX = topLeftTile.X + x + i;
+                                    int globalY = topLeftTile.Y + y + j;
 
                                     if (globalX <= bottomRightTile.X && globalY <= bottomRightTile.Y)
                                     {
@@ -112,16 +108,16 @@ namespace TourPlanner.BusinessLogic.Map
                                                 $"Tile image for X={globalX}, Y={globalY} is null.");
                                         }
 
-                                        int xPos = x * 256;
-                                        int yPos = y * 256;
+                                        int xPos = i * 256;
+                                        int yPos = j * 256;
                                         tileGraphics.DrawImage(fetchedTile, xPos, yPos);
                                     }
                                 }
                             }
                         }
 
-                        int finalXPos = tileX * maxBitmapDimension;
-                        int finalYPos = tileY * maxBitmapDimension;
+                        int finalXPos = x * 256;
+                        int finalYPos = y * 256;
                         finalGraphics.DrawImage(tileImage, finalXPos, finalYPos);
                     }
                 }
