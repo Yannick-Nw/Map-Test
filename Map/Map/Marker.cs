@@ -1,10 +1,6 @@
-﻿using System;
+﻿using SkiaSharp;
+using System;
 using System.Collections.Generic;
-using System.Drawing;
-using System.Linq;
-using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
 using System.IO;
 
 namespace TourPlanner.BusinessLogic.Map
@@ -58,7 +54,7 @@ namespace TourPlanner.BusinessLogic.Map
             return null;
         }
 
-        public static Bitmap GetMarkerImage(Marker marker)
+        public static SKBitmap GetMarkerImage(Marker marker)
         {
             string resourcePath = GetResource(marker);
             if (!File.Exists(resourcePath))
@@ -68,9 +64,12 @@ namespace TourPlanner.BusinessLogic.Map
 
             try
             {
-                return new Bitmap(resourcePath);
+                using (var stream = File.OpenRead(resourcePath))
+                {
+                    return SKBitmap.Decode(stream);
             }
-            catch (ArgumentException ex)
+            }
+            catch (Exception ex)
             {
                 throw new ArgumentException($"Failed to load the image from '{resourcePath}'. Ensure the file is a valid PNG image.", ex);
             }

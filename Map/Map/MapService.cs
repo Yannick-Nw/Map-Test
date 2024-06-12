@@ -1,19 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Drawing;
-using System.Drawing.Imaging;
+﻿using SkiaSharp;
+using System;
 using System.IO;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
-//using Windows.Devices.Geolocation;
-using System.Configuration;
 
 namespace TourPlanner.BusinessLogic.Map
 {
     internal class MapService
     {
-        private Bitmap finalImage;
+        private SKBitmap finalImage;
 
         public async Task<string> GetMap(string addressStart, string addressEnd)
         {
@@ -57,7 +51,13 @@ namespace TourPlanner.BusinessLogic.Map
                 string filePath = Path.Combine(directoryPath, filename + ".png");
                 Console.WriteLine($"Saving image to: {filePath}");
 
-                finalImage.Save(filePath, ImageFormat.Png);
+                // Save the image using SkiaSharp
+                using (var image = SKImage.FromBitmap(finalImage))
+                using (var data = image.Encode(SKEncodedImageFormat.Png, 100))
+                using (var stream = File.OpenWrite(filePath))
+                {
+                    data.SaveTo(stream);
+                }
 
                 return filePath;
             }

@@ -1,10 +1,8 @@
-﻿using System;
+﻿using SkiaSharp;
+using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.IO;
-using System.Linq;
-using System.Reflection;
-using System.Text;
+using System.Net.Http;
 using System.Threading.Tasks;
 using System.Text.Json;
 
@@ -30,7 +28,6 @@ namespace TourPlanner.BusinessLogic.Map
 
         private readonly List<GeoCoordinate> markers = new();
         private readonly List<GeoCoordinate> routeWaypoints = new();
-        private Bitmap finalImage;
 
         public void AddMarker(GeoCoordinate marker)
         {
@@ -42,12 +39,8 @@ namespace TourPlanner.BusinessLogic.Map
             routeWaypoints.AddRange(waypoints);
         }
 
-        public async Task<Bitmap> GenerateImage(MapAPIService api)
+        public async Task<SKBitmap> GenerateImage(MapAPIService api)
         {
-            const int maxTileSize = 256;
-            const int maxBitmapDimension = 10000; // Adjust this limit based on your system capabilities
-
-            // Calculate the tile numbers for each corner of the bounding box
             var topLeftTile = Tile.LatLonToTile(maxLat, minLon, Zoom);
             var bottomRightTile = Tile.LatLonToTile(minLat, maxLon, Zoom);
 
@@ -62,84 +55,74 @@ namespace TourPlanner.BusinessLogic.Map
             // Debugging output for calculated dimensions
             Console.WriteLine($"tilesX: {tilesX}, tilesY: {tilesY}");
 
-            int totalWidth = tilesX * maxTileSize;
-            int totalHeight = tilesY * maxTileSize;
+            int totalWidth = tilesX * 256;
+            int totalHeight = tilesY * 256;
 
             Console.WriteLine($"Total Width: {totalWidth}, Total Height: {totalHeight}");
 
             // Create the final image in smaller parts
-            Bitmap finalImage = new Bitmap(totalWidth, totalHeight);
-            using (Graphics finalGraphics = Graphics.FromImage(finalImage))
+            var finalImage = new SKBitmap(totalWidth, totalHeight);
+            using (var canvas = new SKCanvas(finalImage))
             {
                 for (int x = 0; x < tilesX; x++)
                 {
                     for (int y = 0; y < tilesY; y++)
                     {
-                        int tileWidth = Math.Min(maxTileSize, (tilesX - x) * maxTileSize);
-                        int tileHeight = Math.Min(maxTileSize, (tilesY - y) * maxTileSize);
+                        int globalX = topLeftTile.X + x;
+                        int globalY = topLeftTile.Y + y;
 
-                        Bitmap tileImage = new Bitmap(tileWidth, tileHeight);
-                        using (Graphics tileGraphics = Graphics.FromImage(tileImage))
+                        if (globalX <= bottomRightTile.X && globalY <= bottomRightTile.Y)
                         {
-                            int globalX = topLeftTile.X + x;
-                            int globalY = topLeftTile.Y + y;
-
-                            if (globalX <= bottomRightTile.X && globalY <= bottomRightTile.Y)
+                            SKBitmap tileImage;
+                            try
                             {
-                                Bitmap fetchedTile;
-                                try
-                                {
-                                    fetchedTile = await api.GetTileAsync(new Tile(globalX, globalY), Zoom);
-                                }
-                                catch (Exception e)
-                                {
-                                    throw new InvalidOperationException(
-                                        $"Failed to fetch tile image for X={globalX}, Y={globalY}.", e);
-                                }
-
-                                if (fetchedTile == null)
-                                {
-                                    throw new InvalidOperationException(
-                                        $"Tile image for X={globalX}, Y={globalY} is null.");
-                                }
-
-                                int xPos = 0;
-                                int yPos = 0;
-                                tileGraphics.DrawImage(fetchedTile, xPos, yPos);
+                                tileImage = await api.GetTileAsync(new Tile(globalX, globalY), Zoom);
                             }
-                        }
+                            catch (Exception e)
+                            {
+                                throw new InvalidOperationException(
+                                    $"Failed to fetch tile image for X={globalX}, Y={globalY}.", e);
+                            }
 
-                        int finalXPos = x * maxTileSize;
-                        int finalYPos = y * maxTileSize;
-                        finalGraphics.DrawImage(tileImage, finalXPos, finalYPos);
+                            if (tileImage == null)
+                            {
+                                throw new InvalidOperationException(
+                                    $"Tile image for X={globalX}, Y={globalY} is null.");
+                            }
+
+                            int xPos = x * 256;
+                            int yPos = y * 256;
+                            canvas.DrawBitmap(tileImage, xPos, yPos);
+                        }
                     }
                 }
 
-                Point topLeftTilePixel = new Point(topLeftTile.X * maxTileSize, topLeftTile.Y * maxTileSize);
+                SKPoint topLeftTilePixel = new SKPoint(topLeftTile.X * 256, topLeftTile.Y * 256);
 
                 // Draw route waypoints as lines
                 if (routeWaypoints.Count > 1)
                 {
-                    using (Pen pen = new Pen(Color.Red, 10))
+                    var paint = new SKPaint
                     {
-                        for (int i = 0; i < routeWaypoints.Count - 1; i++)
+                        Color = SKColors.Red,
+                        StrokeWidth = 10,
+                        IsStroke = true
+                    };
+                    for (int i = 0; i < routeWaypoints.Count - 1; i++)
+                    {
+                        SKPoint point1 = LatLonToPixel(routeWaypoints[i].Lat, routeWaypoints[i].Lon, Zoom);
+                        SKPoint point2 = LatLonToPixel(routeWaypoints[i + 1].Lat, routeWaypoints[i + 1].Lon, Zoom);
+
+                        SKPoint relativePos1 =
+                            new SKPoint(point1.X - topLeftTilePixel.X, point1.Y - topLeftTilePixel.Y);
+                        SKPoint relativePos2 =
+                            new SKPoint(point2.X - topLeftTilePixel.X, point2.Y - topLeftTilePixel.Y);
+
+                        // Ensure points are within image bounds before drawing
+                        if (IsWithinBounds(relativePos1, finalImage.Width, finalImage.Height) &&
+                            IsWithinBounds(relativePos2, finalImage.Width, finalImage.Height))
                         {
-                            Point point1 = Point.LatLonToPixel(routeWaypoints[i].Lat, routeWaypoints[i].Lon, Zoom);
-                            Point point2 = Point.LatLonToPixel(routeWaypoints[i + 1].Lat, routeWaypoints[i + 1].Lon,
-                                Zoom);
-
-                            Point relativePos1 = new Point(point1.X - topLeftTilePixel.X,
-                                point1.Y - topLeftTilePixel.Y);
-                            Point relativePos2 = new Point(point2.X - topLeftTilePixel.X,
-                                point2.Y - topLeftTilePixel.Y);
-
-                            // Ensure points are within image bounds before drawing
-                            if (IsWithinBounds(relativePos1, finalImage.Width, finalImage.Height) &&
-                                IsWithinBounds(relativePos2, finalImage.Width, finalImage.Height))
-                            {
-                                finalGraphics.DrawLine(pen, relativePos1.X, relativePos1.Y, relativePos2.X,
-                                    relativePos2.Y);
-                            }
+                            canvas.DrawLine(relativePos1, relativePos2, paint);
                         }
                     }
                 }
@@ -147,26 +130,27 @@ namespace TourPlanner.BusinessLogic.Map
                 // Draw Markers
                 foreach (var marker in markers)
                 {
-                    Bitmap markerIcon = MarkerUtils.GetMarkerImage(Marker.PIN_RED_32px);
-                    Point globalPos = Point.LatLonToPixel(marker.Lat, marker.Lon, Zoom);
-                    Point relativePos = new Point(globalPos.X - topLeftTilePixel.X, globalPos.Y - topLeftTilePixel.Y);
+                    SKBitmap markerIcon = MarkerUtils.GetMarkerImage(Marker.PIN_RED_32px);
+                    SKPoint globalPos = LatLonToPixel(marker.Lat, marker.Lon, Zoom);
+                    SKPoint relativePos =
+                        new SKPoint(globalPos.X - topLeftTilePixel.X, globalPos.Y - topLeftTilePixel.Y);
 
                     // Ensure marker is within image bounds before drawing
                     if (IsWithinBounds(relativePos, finalImage.Width, finalImage.Height))
                     {
-                        finalGraphics.DrawImage(markerIcon, relativePos.X, relativePos.Y);
+                        canvas.DrawBitmap(markerIcon, relativePos);
                     }
                 }
 
                 // Crop the image to the exact bounding box
                 if (CropImage)
                 {
-                    Point bboxLeftTopGlobalPos = Point.LatLonToPixel(maxLat, minLon, Zoom);
-                    Point bboxRightBottomGlobalPos = Point.LatLonToPixel(minLat, maxLon, Zoom);
-                    Point bboxLeftTopRelativePos = new Point(bboxLeftTopGlobalPos.X - topLeftTilePixel.X,
+                    SKPoint bboxLeftTopGlobalPos = LatLonToPixel(maxLat, minLon, Zoom);
+                    SKPoint bboxRightBottomGlobalPos = LatLonToPixel(minLat, maxLon, Zoom);
+                    SKPoint bboxLeftTopRelativePos = new SKPoint(bboxLeftTopGlobalPos.X - topLeftTilePixel.X,
                         bboxLeftTopGlobalPos.Y - topLeftTilePixel.Y);
-                    int width = bboxRightBottomGlobalPos.X - bboxLeftTopGlobalPos.X;
-                    int height = bboxRightBottomGlobalPos.Y - bboxLeftTopGlobalPos.Y;
+                    int width = (int)(bboxRightBottomGlobalPos.X - bboxLeftTopGlobalPos.X);
+                    int height = (int)(bboxRightBottomGlobalPos.Y - bboxLeftTopGlobalPos.Y);
 
                     Console.WriteLine(
                         $"bboxLeftTopRelativePos: X={bboxLeftTopRelativePos.X}, Y={bboxLeftTopRelativePos.Y}");
@@ -175,16 +159,13 @@ namespace TourPlanner.BusinessLogic.Map
                     // Ensure width and height are valid
                     if (width > 0 && height > 0)
                     {
-                        try
+                        finalImage = new SKBitmap(width, height);
+                        using (var croppedCanvas = new SKCanvas(finalImage))
                         {
-                            finalImage =
-                                finalImage.Clone(
-                                    new Rectangle(bboxLeftTopRelativePos.X, bboxLeftTopRelativePos.Y, width, height),
-                                    finalImage.PixelFormat);
-                        }
-                        catch (Exception e)
-                        {
-                            throw new ArgumentException("Cropping the image failed due to invalid dimensions.", e);
+                            croppedCanvas.DrawBitmap(finalImage,
+                                new SKRect(bboxLeftTopRelativePos.X, bboxLeftTopRelativePos.Y,
+                                    bboxLeftTopRelativePos.X + width, bboxLeftTopRelativePos.Y + height),
+                                new SKRect(0, 0, width, height));
                         }
                     }
                     else
@@ -197,18 +178,26 @@ namespace TourPlanner.BusinessLogic.Map
             return finalImage;
         }
 
+        private bool IsWithinBounds(SKPoint point, int width, int height)
+        {
+            return point.X >= 0 && point.X < width && point.Y >= 0 && point.Y < height;
+        }
+
+        public static SKPoint LatLonToPixel(double lat, double lon, int zoom)
+        {
+            // Conversion logic here
+            // This is just a placeholder implementation
+            return new SKPoint((float)(lon * zoom), (float)(lat * zoom));
+        }
+
         public async Task AddRouteAsync(MapAPIService api, GeoCoordinate start, GeoCoordinate end)
         {
-            // Ensure the correct decimal separator
             string startCoordinates =
                 $"{start.Lon.ToString(System.Globalization.CultureInfo.InvariantCulture)},{start.Lat.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
             string endCoordinates =
                 $"{end.Lon.ToString(System.Globalization.CultureInfo.InvariantCulture)},{end.Lat.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
 
             string directionsJson = await api.GetDirectionsAsync(startCoordinates, endCoordinates);
-
-            // Log the JSON response
-            //Console.WriteLine(directionsJson);
 
             var waypoints = ParseWaypoints(directionsJson);
 
@@ -253,11 +242,6 @@ namespace TourPlanner.BusinessLogic.Map
             }
 
             return waypoints;
-        }
-
-        private bool IsWithinBounds(Point point, int width, int height)
-        {
-            return point.X >= 0 && point.X < width && point.Y >= 0 && point.Y < height;
         }
     }
 }

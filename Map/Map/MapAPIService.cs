@@ -1,13 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Net.Http;
-using System.Drawing;
+﻿using SkiaSharp;
+using System;
 using System.IO;
-using System.Globalization;
+using System.Net.Http;
 using System.Text.Json;
+using System.Threading.Tasks;
 
 namespace TourPlanner.BusinessLogic.Map
 {
@@ -30,7 +26,7 @@ namespace TourPlanner.BusinessLogic.Map
             }
         }
 
-        public async Task<Bitmap> GetTileAsync(Tile tile, int zoom)
+        public async Task<SKBitmap> GetTileAsync(Tile tile, int zoom)
         {
             string uri = $"https://tile.openstreetmap.org/{zoom}/{tile.X}/{tile.Y}.png";
             using (HttpClient client = new HttpClient())
@@ -54,14 +50,7 @@ namespace TourPlanner.BusinessLogic.Map
                         throw new ArgumentException("Stream is null or empty.");
                     }
 
-                    try
-                    {
-                        return new Bitmap(stream);
-                    }
-                    catch (ArgumentException ex)
-                    {
-                        throw new ArgumentException("The stream does not contain a valid image.", ex);
-                    }
+                    return SKBitmap.Decode(stream);
                 }
             }
         }
@@ -85,7 +74,7 @@ namespace TourPlanner.BusinessLogic.Map
             var coordinates = root.GetProperty("features")[0].GetProperty("geometry").GetProperty("coordinates");
             GeoCoordinate coordinatesData = new GeoCoordinate(coordinates[0].GetDouble(), coordinates[1].GetDouble());
 
-            return (coordinatesData);
+            return coordinatesData;
         }
     }
 }
