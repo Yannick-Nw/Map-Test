@@ -44,6 +44,7 @@ namespace TourPlanner.BusinessLogic.Map
 
         public async Task<Bitmap> GenerateImage(MapAPIService api)
         {
+            const int maxTileSize = 256;
             const int maxBitmapDimension = 10000; // Adjust this limit based on your system capabilities
 
             // Calculate the tile numbers for each corner of the bounding box
@@ -61,68 +62,60 @@ namespace TourPlanner.BusinessLogic.Map
             // Debugging output for calculated dimensions
             Console.WriteLine($"tilesX: {tilesX}, tilesY: {tilesY}");
 
-            int totalWidth = tilesX * 256;
-            int totalHeight = tilesY * 256;
+            int totalWidth = tilesX * maxTileSize;
+            int totalHeight = tilesY * maxTileSize;
 
             Console.WriteLine($"Total Width: {totalWidth}, Total Height: {totalHeight}");
 
             // Create the final image in smaller parts
             Bitmap finalImage = new Bitmap(totalWidth, totalHeight);
-
             using (Graphics finalGraphics = Graphics.FromImage(finalImage))
             {
-                for (int x = 0; x < tilesX; x += maxBitmapDimension / 256)
+                for (int x = 0; x < tilesX; x++)
                 {
-                    for (int y = 0; y < tilesY; y += maxBitmapDimension / 256)
+                    for (int y = 0; y < tilesY; y++)
                     {
-                        int tileWidth = Math.Min(maxBitmapDimension, (tilesX - x) * 256);
-                        int tileHeight = Math.Min(maxBitmapDimension, (tilesY - y) * 256);
+                        int tileWidth = Math.Min(maxTileSize, (tilesX - x) * maxTileSize);
+                        int tileHeight = Math.Min(maxTileSize, (tilesY - y) * maxTileSize);
 
                         Bitmap tileImage = new Bitmap(tileWidth, tileHeight);
-
                         using (Graphics tileGraphics = Graphics.FromImage(tileImage))
                         {
-                            for (int i = 0; i < tileWidth / 256; i++)
+                            int globalX = topLeftTile.X + x;
+                            int globalY = topLeftTile.Y + y;
+
+                            if (globalX <= bottomRightTile.X && globalY <= bottomRightTile.Y)
                             {
-                                for (int j = 0; j < tileHeight / 256; j++)
+                                Bitmap fetchedTile;
+                                try
                                 {
-                                    int globalX = topLeftTile.X + x + i;
-                                    int globalY = topLeftTile.Y + y + j;
-
-                                    if (globalX <= bottomRightTile.X && globalY <= bottomRightTile.Y)
-                                    {
-                                        Bitmap fetchedTile;
-                                        try
-                                        {
-                                            fetchedTile = await api.GetTileAsync(new Tile(globalX, globalY), Zoom);
-                                        }
-                                        catch (Exception e)
-                                        {
-                                            throw new InvalidOperationException(
-                                                $"Failed to fetch tile image for X={globalX}, Y={globalY}.", e);
-                                        }
-
-                                        if (fetchedTile == null)
-                                        {
-                                            throw new InvalidOperationException(
-                                                $"Tile image for X={globalX}, Y={globalY} is null.");
-                                        }
-
-                                        int xPos = i * 256;
-                                        int yPos = j * 256;
-                                        tileGraphics.DrawImage(fetchedTile, xPos, yPos);
-                                    }
+                                    fetchedTile = await api.GetTileAsync(new Tile(globalX, globalY), Zoom);
                                 }
+                                catch (Exception e)
+                                {
+                                    throw new InvalidOperationException(
+                                        $"Failed to fetch tile image for X={globalX}, Y={globalY}.", e);
+                                }
+
+                                if (fetchedTile == null)
+                                {
+                                    throw new InvalidOperationException(
+                                        $"Tile image for X={globalX}, Y={globalY} is null.");
+                                }
+
+                                int xPos = 0;
+                                int yPos = 0;
+                                tileGraphics.DrawImage(fetchedTile, xPos, yPos);
                             }
                         }
 
-                        int finalXPos = x * 256;
-                        int finalYPos = y * 256;
+                        int finalXPos = x * maxTileSize;
+                        int finalYPos = y * maxTileSize;
                         finalGraphics.DrawImage(tileImage, finalXPos, finalYPos);
                     }
                 }
 
-                Point topLeftTilePixel = new Point(topLeftTile.X * 256, topLeftTile.Y * 256);
+                Point topLeftTilePixel = new Point(topLeftTile.X * maxTileSize, topLeftTile.Y * maxTileSize);
 
                 // Draw route waypoints as lines
                 if (routeWaypoints.Count > 1)
