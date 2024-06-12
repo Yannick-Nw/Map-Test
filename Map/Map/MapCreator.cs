@@ -61,51 +61,68 @@ namespace TourPlanner.BusinessLogic.Map
             // Debugging output for calculated dimensions
             Console.WriteLine($"tilesX: {tilesX}, tilesY: {tilesY}");
 
-            int bitmapWidth = tilesX * 256;
-            int bitmapHeight = tilesY * 256;
+            int totalWidth = tilesX * 256;
+            int totalHeight = tilesY * 256;
 
-            Console.WriteLine($"Bitmap Width: {bitmapWidth}, Bitmap Height: {bitmapHeight}");
+            Console.WriteLine($"Total Width: {totalWidth}, Total Height: {totalHeight}");
 
-            // Ensure dimensions are within reasonable limits
-            if (bitmapWidth > maxBitmapDimension || bitmapHeight > maxBitmapDimension)
-            {
-                throw new ArgumentException("Bitmap dimensions exceed allowable limits.");
-            }
+            // Calculate the number of tiles in each dimension
+            int numXTiles = (int)Math.Ceiling((double)totalWidth / maxBitmapDimension);
+            int numYTiles = (int)Math.Ceiling((double)totalHeight / maxBitmapDimension);
 
-            Bitmap finalImage;
-            try
-            {
-                finalImage = new Bitmap(bitmapWidth, bitmapHeight);
-            }
-            catch (ArgumentException e)
-            {
-                throw new ArgumentException("Bitmap creation failed with the given dimensions.", e);
-            }
+            // Create the final image
+            Bitmap finalImage = new Bitmap(totalWidth, totalHeight);
 
-            using (Graphics g = Graphics.FromImage(finalImage))
+            using (Graphics finalGraphics = Graphics.FromImage(finalImage))
             {
-                for (int x = topLeftTile.X; x <= bottomRightTile.X; x++)
+                for (int tileX = 0; tileX < numXTiles; tileX++)
                 {
-                    for (int y = topLeftTile.Y; y <= bottomRightTile.Y; y++)
+                    for (int tileY = 0; tileY < numYTiles; tileY++)
                     {
-                        Bitmap tileImage;
-                        try
+                        int tileWidth = Math.Min(maxBitmapDimension, totalWidth - (tileX * maxBitmapDimension));
+                        int tileHeight = Math.Min(maxBitmapDimension, totalHeight - (tileY * maxBitmapDimension));
+
+                        Bitmap tileImage = new Bitmap(tileWidth, tileHeight);
+
+                        using (Graphics tileGraphics = Graphics.FromImage(tileImage))
                         {
-                            tileImage = await api.GetTileAsync(new Tile(x, y), Zoom);
-                        }
-                        catch (Exception e)
-                        {
-                            throw new InvalidOperationException($"Failed to fetch tile image for X={x}, Y={y}.", e);
+                            for (int x = 0; x < tileWidth / 256; x++)
+                            {
+                                for (int y = 0; y < tileHeight / 256; y++)
+                                {
+                                    int globalX = topLeftTile.X + tileX * (maxBitmapDimension / 256) + x;
+                                    int globalY = topLeftTile.Y + tileY * (maxBitmapDimension / 256) + y;
+
+                                    if (globalX <= bottomRightTile.X && globalY <= bottomRightTile.Y)
+                                    {
+                                        Bitmap fetchedTile;
+                                        try
+                                        {
+                                            fetchedTile = await api.GetTileAsync(new Tile(globalX, globalY), Zoom);
+                                        }
+                                        catch (Exception e)
+                                        {
+                                            throw new InvalidOperationException(
+                                                $"Failed to fetch tile image for X={globalX}, Y={globalY}.", e);
+                                        }
+
+                                        if (fetchedTile == null)
+                                        {
+                                            throw new InvalidOperationException(
+                                                $"Tile image for X={globalX}, Y={globalY} is null.");
+                                        }
+
+                                        int xPos = x * 256;
+                                        int yPos = y * 256;
+                                        tileGraphics.DrawImage(fetchedTile, xPos, yPos);
+                                    }
+                                }
+                            }
                         }
 
-                        if (tileImage == null)
-                        {
-                            throw new InvalidOperationException($"Tile image for X={x}, Y={y} is null.");
-                        }
-
-                        int xPos = (x - topLeftTile.X) * 256;
-                        int yPos = (y - topLeftTile.Y) * 256;
-                        g.DrawImage(tileImage, xPos, yPos);
+                        int finalXPos = tileX * maxBitmapDimension;
+                        int finalYPos = tileY * maxBitmapDimension;
+                        finalGraphics.DrawImage(tileImage, finalXPos, finalYPos);
                     }
                 }
 
@@ -131,7 +148,8 @@ namespace TourPlanner.BusinessLogic.Map
                             if (IsWithinBounds(relativePos1, finalImage.Width, finalImage.Height) &&
                                 IsWithinBounds(relativePos2, finalImage.Width, finalImage.Height))
                             {
-                                g.DrawLine(pen, relativePos1.X, relativePos1.Y, relativePos2.X, relativePos2.Y);
+                                finalGraphics.DrawLine(pen, relativePos1.X, relativePos1.Y, relativePos2.X,
+                                    relativePos2.Y);
                             }
                         }
                     }
@@ -147,7 +165,7 @@ namespace TourPlanner.BusinessLogic.Map
                     // Ensure marker is within image bounds before drawing
                     if (IsWithinBounds(relativePos, finalImage.Width, finalImage.Height))
                     {
-                        g.DrawImage(markerIcon, relativePos.X, relativePos.Y);
+                        finalGraphics.DrawImage(markerIcon, relativePos.X, relativePos.Y);
                     }
                 }
 
