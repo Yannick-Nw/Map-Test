@@ -44,6 +44,8 @@ namespace TourPlanner.BusinessLogic.Map
 
         public async Task<Bitmap> GenerateImage(MapAPIService api)
         {
+            const int maxBitmapDimension = 10000; // Adjust this limit based on your system capabilities
+
             // Calculate the tile numbers for each corner of the bounding box
             var topLeftTile = Tile.LatLonToTile(maxLat, minLon, Zoom);
             var bottomRightTile = Tile.LatLonToTile(minLat, maxLon, Zoom);
@@ -64,19 +66,13 @@ namespace TourPlanner.BusinessLogic.Map
 
             Console.WriteLine($"Bitmap Width: {bitmapWidth}, Bitmap Height: {bitmapHeight}");
 
-            // Ensure tilesX and tilesY are valid
-            if (tilesX <= 0 || tilesY <= 0)
-            {
-                throw new ArgumentException("Invalid dimensions for the bitmap.");
-            }
-
-            // Check if the dimensions are within reasonable limits
-            if (bitmapWidth > 30000 || bitmapHeight > 30000)
+            // Ensure dimensions are within reasonable limits
+            if (bitmapWidth > maxBitmapDimension || bitmapHeight > maxBitmapDimension)
             {
                 throw new ArgumentException("Bitmap dimensions exceed allowable limits.");
             }
 
-            // Create a new image to hold all the tiles
+            Bitmap finalImage;
             try
             {
                 finalImage = new Bitmap(bitmapWidth, bitmapHeight);
